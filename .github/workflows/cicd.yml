@@ -42,7 +42,7 @@ jobs:
       - name: Run linting
         run: |
           pip install flake8
-          flake8 src/handlers --max-line-length=120 --ignore=E501
+          flake8 src/handlers --max-line-length=120 --ignore=E501,E402
           flake8 src/layers/common --max-line-length=120 --ignore=E501
       
       - name: Run security scan

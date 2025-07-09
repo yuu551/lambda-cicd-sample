@@ -1,16 +1,14 @@
-import json
 import os
-import uuid
-from datetime import datetime
 import sys
+import uuid
 
 # Lambda Layerのパスを追加
 sys.path.insert(0, '/opt/python')
 
 from utils import (
-    create_response, 
-    log_event, 
-    parse_json_body, 
+    create_response,
+    log_event,
+    parse_json_body,
     get_path_parameter,
     get_query_parameter,
     get_current_timestamp
@@ -30,11 +28,11 @@ db_manager = DynamoDBManager(USER_TABLE_NAME)
 def lambda_handler(event, context):
     """ユーザー管理APIのメインハンドラー"""
     log_event(event, context)
-    
+
     try:
         http_method = event.get('httpMethod', '')
         resource = event.get('resource', '')
-        
+
         # ルーティング
         if resource == '/users' and http_method == 'POST':
             return create_user(event)
@@ -44,7 +42,7 @@ def lambda_handler(event, context):
             return list_users(event)
         else:
             return create_response(404, {'error': 'Resource not found'})
-            
+
     except Exception as e:
         print(f"Error in lambda_handler: {str(e)}")
         return create_response(500, {'error': 'Internal server error'})
@@ -55,12 +53,12 @@ def create_user(event):
     try:
         # リクエストボディをパース
         body = parse_json_body(event)
-        
+
         # バリデーション
         is_valid, error_message = validate_user_data(body)
         if not is_valid:
             return create_response(400, {'error': error_message})
-        
+
         # ユーザーオブジェクトを作成
         user = {
             'id': str(uuid.uuid4()),
@@ -70,21 +68,21 @@ def create_user(event):
             'updated_at': get_current_timestamp(),
             'status': 'active'
         }
-        
+
         # オプショナルフィールド
         if 'phone' in body:
             user['phone'] = body['phone']
         if 'department' in body:
             user['department'] = body['department']
-        
+
         # データベースに保存
         db_manager.put_item(user)
-        
+
         return create_response(201, {
             'message': 'User created successfully',
             'user': user
         })
-        
+
     except Exception as e:
         print(f"Error creating user: {str(e)}")
         return create_response(500, {'error': 'Failed to create user'})
@@ -96,15 +94,15 @@ def get_user(event):
         user_id = get_path_parameter(event, 'id')
         if not user_id:
             return create_response(400, {'error': 'User ID is required'})
-        
+
         # データベースから取得
         user = db_manager.get_item({'id': user_id})
-        
+
         if not user:
             return create_response(404, {'error': 'User not found'})
-        
+
         return create_response(200, {'user': user})
-        
+
     except Exception as e:
         print(f"Error getting user: {str(e)}")
         return create_response(500, {'error': 'Failed to get user'})
@@ -117,15 +115,15 @@ def list_users(event):
         limit_str = get_query_parameter(event, 'limit')
         limit = int(limit_str) if limit_str else 50
         limit = min(limit, 100)  # 最大100件に制限
-        
+
         # データベースから一覧取得
         users = db_manager.scan_table(limit=limit)
-        
+
         return create_response(200, {
             'users': users,
             'count': len(users)
         })
-        
+
     except Exception as e:
         print(f"Error listing users: {str(e)}")
         return create_response(500, {'error': 'Failed to list users'})

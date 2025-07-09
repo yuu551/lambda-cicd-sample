@@ -1,15 +1,13 @@
-import json
 import os
 import sys
 import boto3
-from datetime import datetime
 
 # Lambda Layerのパスを追加
 sys.path.insert(0, '/opt/python')
 
 from utils import (
-    create_response, 
-    log_event, 
+    create_response,
+    log_event,
     parse_json_body,
     get_current_timestamp
 )
@@ -28,7 +26,7 @@ db_manager = DynamoDBManager(PROCESSING_TABLE_NAME)
 def lambda_handler(event, context):
     """データ処理のメインハンドラー"""
     log_event(event, context)
-    
+
     try:
         # イベントソースを判定
         if 'Records' in event and event['Records']:
@@ -38,9 +36,9 @@ def lambda_handler(event, context):
             # API Gatewayイベント
             return handle_api_request(event, context)
         else:
-            print(f"Unknown event type: {json.dumps(event)}")
+            print("Unknown event type")
             return {'statusCode': 400, 'body': 'Unknown event type'}
-            
+
     except Exception as e:
         print(f"Error in lambda_handler: {str(e)}")
         return create_response(500, {'error': 'Internal server error'})
@@ -55,9 +53,9 @@ def handle_s3_event(event, context):
             bucket_name = s3_info['bucket']['name']
             object_key = s3_info['object']['key']
             event_name = record['eventName']
-            
+
             print(f"Processing S3 event: {event_name} for {bucket_name}/{object_key}")
-            
+
             # 処理ジョブを記録
             job = {
                 'id': context.request_id,
@@ -68,14 +66,14 @@ def handle_s3_event(event, context):
                 'created_at': get_current_timestamp(),
                 'event_name': event_name
             }
-            
+
             db_manager.put_item(job)
-            
+
             # ファイルサイズを取得
             response = s3_client.head_object(Bucket=bucket_name, Key=object_key)
             file_size = response['ContentLength']
             content_type = response.get('ContentType', 'unknown')
-            
+
             # 処理完了を記録
             updates = {
                 'status': 'completed',
@@ -83,11 +81,11 @@ def handle_s3_event(event, context):
                 'file_size': file_size,
                 'content_type': content_type
             }
-            
+
             db_manager.update_item({'id': context.request_id}, updates)
-            
+
         return {'statusCode': 200, 'body': 'S3 event processed successfully'}
-        
+
     except Exception as e:
         print(f"Error processing S3 event: {str(e)}")
         # エラーを記録
@@ -104,10 +102,10 @@ def handle_api_request(event, context):
     try:
         # リクエストボディをパース
         body = parse_json_body(event)
-        
+
         if not body or 'data' not in body:
             return create_response(400, {'error': 'Request body must contain "data" field'})
-        
+
         # 処理ジョブを作成
         job = {
             'id': context.request_id,
@@ -117,28 +115,28 @@ def handle_api_request(event, context):
             'data': body['data'],
             'metadata': body.get('metadata', {})
         }
-        
+
         db_manager.put_item(job)
-        
+
         # ここで実際のデータ処理を実行
         # （サンプルなので、簡単な処理のみ）
         processed_data = process_data(body['data'])
-        
+
         # 処理結果を更新
         updates = {
             'status': 'completed',
             'completed_at': get_current_timestamp(),
             'result': processed_data
         }
-        
+
         db_manager.update_item({'id': context.request_id}, updates)
-        
+
         return create_response(200, {
             'message': 'Data processed successfully',
             'job_id': context.request_id,
             'result': processed_data
         })
-        
+
     except Exception as e:
         print(f"Error processing API request: {str(e)}")
         return create_response(500, {'error': 'Failed to process data'})
