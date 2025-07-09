@@ -1,0 +1,250 @@
+name: Lambda CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  AWS_REGION: ap-northeast-1
+  SAM_CLI_TELEMETRY: 0
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    environment: test
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest moto boto3
+          pip install -r src/layers/common/requirements.txt
+      
+      - name: Run unit tests
+        run: |
+          cd src/tests
+          python -m pytest test_user_management.py -v
+      
+      - name: Run linting
+        run: |
+          pip install flake8
+          flake8 src/handlers --max-line-length=120 --ignore=E501
+          flake8 src/layers/common --max-line-length=120 --ignore=E501
+      
+      - name: Run security scan
+        run: |
+          pip install bandit
+          bandit -r src/handlers
+          bandit -r src/layers/common
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Set up AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions
+      
+      - name: SAM build
+        run: |
+          sam build --use-container
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: sam-build-artifacts
+          path: .aws-sam/build
+          retention-days: 5
+
+  deploy-dev:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: development
+    if: github.ref == 'refs/heads/develop'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: sam-build-artifacts
+          path: .aws-sam/build
+      
+      - name: Deploy to development
+        run: |
+          sam deploy \\
+            --stack-name lambda-cicd-dev \\
+            --parameter-overrides \\
+              Environment=dev \\
+              LogLevel=DEBUG \\
+            --capabilities CAPABILITY_IAM \\
+            --region ${{ env.AWS_REGION }} \\
+            --no-confirm-changeset \\
+            --resolve-s3
+      
+      - name: Run integration tests
+        run: |
+          # API Gateway URLを取得
+          API_URL=$(aws cloudformation describe-stacks \\
+            --stack-name lambda-cicd-dev \\
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \\
+            --output text)
+          
+          # Health check
+          curl -f $API_URL/users || exit 1
+          
+          echo "Development deployment successful: $API_URL"
+
+  deploy-prod:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: sam-build-artifacts
+          path: .aws-sam/build
+      
+      - name: Deploy to production
+        run: |
+          sam deploy \\
+            --stack-name lambda-cicd-prod \\
+            --parameter-overrides \\
+              Environment=prod \\
+              LogLevel=INFO \\
+            --capabilities CAPABILITY_IAM \\
+            --region ${{ env.AWS_REGION }} \\
+            --no-confirm-changeset \\
+            --resolve-s3
+      
+      - name: Run smoke tests
+        run: |
+          # API Gateway URLを取得
+          API_URL=$(aws cloudformation describe-stacks \\
+            --stack-name lambda-cicd-prod \\
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \\
+            --output text)
+          
+          # Health check
+          curl -f $API_URL/users || exit 1
+          
+          echo "Production deployment successful: $API_URL"
+      
+      - name: Create GitHub release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release v${{ github.run_number }}
+          body: |
+            Automated release from commit ${{ github.sha }}
+            
+            Deployed to production environment.
+          draft: false
+          prerelease: false
+
+  # オプション: SAM Local テスト
+  local-test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Set up AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+      
+      - name: SAM build
+        run: |
+          sam build
+      
+      - name: SAM local test
+        run: |
+          # バックグラウンドでローカルAPIを起動
+          sam local start-api --port 3000 &
+          LOCAL_PID=$!
+          
+          # APIが起動するまで待機
+          sleep 10
+          
+          # テストを実行
+          curl -f http://localhost:3000/users || exit 1
+          
+          # プロセスを終了
+          kill $LOCAL_PID

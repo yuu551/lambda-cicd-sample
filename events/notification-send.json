@@ -1,0 +1,29 @@
+{
+  "httpMethod": "POST",
+  "resource": "/notify",
+  "path": "/notify",
+  "headers": {
+    "Content-Type": "application/json",
+    "User-Agent": "curl/7.68.0"
+  },
+  "body": "{\"recipient\": \"user@example.com\", \"subject\": \"Test Notification\", \"message\": \"This is a test notification from Lambda CI/CD sample\", \"channel\": \"email\"}",
+  "isBase64Encoded": false,
+  "queryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "requestId": "test-request-id",
+    "stage": "dev",
+    "resourcePath": "/notify",
+    "httpMethod": "POST",
+    "path": "/dev/notify",
+    "accountId": "123456789012",
+    "apiId": "test-api-id",
+    "identity": {
+      "sourceIp": "127.0.0.1",
+      "userAgent": "curl/7.68.0"
+    },
+    "requestTime": "09/Jul/2024:12:00:00 +0000",
+    "requestTimeEpoch": 1720526400000
+  }
+}

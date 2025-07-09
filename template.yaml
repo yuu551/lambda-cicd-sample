@@ -1,0 +1,195 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  lambda-cicd-sample
+  Sample application with multiple Lambda functions and CI/CD
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: python3.9
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        LOG_LEVEL: !Ref LogLevel
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Environment name
+  LogLevel:
+    Type: String
+    Default: INFO
+    AllowedValues:
+      - DEBUG
+      - INFO
+      - WARNING
+      - ERROR
+    Description: Log level for Lambda functions
+
+Resources:
+  # 共通レイヤー
+  CommonLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub ${AWS::StackName}-common-layer
+      Description: Common utilities and libraries
+      Content: ./src/layers/
+      CompatibleRuntimes:
+        - python3.9
+
+  # Lambda Function 1: ユーザー管理API
+  UserManagementFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-user-management
+      CodeUri: ./src/handlers/
+      Handler: user_management.lambda_handler
+      Layers:
+        - !Ref CommonLayer
+      Events:
+        CreateUser:
+          Type: Api
+          Properties:
+            Path: /users
+            Method: post
+            RestApiId: !Ref ApiGateway
+        GetUser:
+          Type: Api
+          Properties:
+            Path: /users/{id}
+            Method: get
+            RestApiId: !Ref ApiGateway
+        ListUsers:
+          Type: Api
+          Properties:
+            Path: /users
+            Method: get
+            RestApiId: !Ref ApiGateway
+
+  # Lambda Function 2: データ処理
+  DataProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-data-processor
+      CodeUri: ./src/handlers/
+      Handler: data_processor.lambda_handler
+      Layers:
+        - !Ref CommonLayer
+      Events:
+        ProcessData:
+          Type: Api
+          Properties:
+            Path: /process
+            Method: post
+            RestApiId: !Ref ApiGateway
+        S3Event:
+          Type: S3
+          Properties:
+            Bucket: !Ref DataBucket
+            Events: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: uploads/
+
+  # Lambda Function 3: 通知サービス
+  NotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-notification
+      CodeUri: ./src/handlers/
+      Handler: notification.lambda_handler
+      Layers:
+        - !Ref CommonLayer
+      Events:
+        SendNotification:
+          Type: Api
+          Properties:
+            Path: /notify
+            Method: post
+            RestApiId: !Ref ApiGateway
+        SNSEvent:
+          Type: SNS
+          Properties:
+            Topic: !Ref NotificationTopic
+
+  # API Gateway
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub ${AWS::StackName}-api
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+      TracingEnabled: true
+
+  # S3 Bucket for data processing
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub ${AWS::StackName}-data-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # SNS Topic for notifications
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub ${AWS::StackName}-notifications
+      DisplayName: Notification Topic
+
+  # CloudWatch Log Groups
+  UserManagementLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${UserManagementFunction}
+      RetentionInDays: 7
+
+  DataProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${DataProcessorFunction}
+      RetentionInDays: 7
+
+  NotificationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${NotificationFunction}
+      RetentionInDays: 7
+
+Outputs:
+  ApiGatewayUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+
+  UserManagementFunctionArn:
+    Description: User Management Lambda Function ARN
+    Value: !GetAtt UserManagementFunction.Arn
+
+  DataProcessorFunctionArn:
+    Description: Data Processor Lambda Function ARN
+    Value: !GetAtt DataProcessorFunction.Arn
+
+  NotificationFunctionArn:
+    Description: Notification Lambda Function ARN
+    Value: !GetAtt NotificationFunction.Arn
+
+  DataBucketName:
+    Description: S3 Bucket for data processing
+    Value: !Ref DataBucket

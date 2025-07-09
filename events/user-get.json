@@ -1,0 +1,31 @@
+{
+  "httpMethod": "GET",
+  "resource": "/users/{id}",
+  "path": "/users/12345",
+  "headers": {
+    "Content-Type": "application/json",
+    "User-Agent": "curl/7.68.0"
+  },
+  "body": null,
+  "isBase64Encoded": false,
+  "queryStringParameters": null,
+  "pathParameters": {
+    "id": "12345"
+  },
+  "stageVariables": null,
+  "requestContext": {
+    "requestId": "test-request-id",
+    "stage": "dev",
+    "resourcePath": "/users/{id}",
+    "httpMethod": "GET",
+    "path": "/dev/users/12345",
+    "accountId": "123456789012",
+    "apiId": "test-api-id",
+    "identity": {
+      "sourceIp": "127.0.0.1",
+      "userAgent": "curl/7.68.0"
+    },
+    "requestTime": "09/Jul/2024:12:00:00 +0000",
+    "requestTimeEpoch": 1720526400000
+  }
+}
