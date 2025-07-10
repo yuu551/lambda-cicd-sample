@@ -132,6 +132,7 @@ jobs:
             echo "Stack deleted successfully."
           fi
           
+          set +e
           sam deploy \
             --stack-name lambda-cicd-dev \
             --parameter-overrides \
@@ -141,6 +142,23 @@ jobs:
             --region ${{ env.AWS_REGION }} \
             --no-confirm-changeset \
             --resolve-s3
+          
+          DEPLOY_EXIT_CODE=$?
+          if [ $DEPLOY_EXIT_CODE -eq 1 ]; then
+            echo "Deploy returned exit code 1, checking if it's 'No changes to deploy'..."
+            if sam deploy --stack-name lambda-cicd-dev --parameter-overrides Environment=dev LogLevel=DEBUG --capabilities CAPABILITY_IAM --region ${{ env.AWS_REGION }} --no-confirm-changeset --resolve-s3 2>&1 | grep -q "No changes to deploy"; then
+              echo "✅ No changes to deploy - stack is up to date"
+            else
+              echo "❌ Deploy failed with a different error"
+              exit 1
+            fi
+          elif [ $DEPLOY_EXIT_CODE -ne 0 ]; then
+            echo "❌ Deploy failed with exit code $DEPLOY_EXIT_CODE"
+            exit $DEPLOY_EXIT_CODE
+          else
+            echo "✅ Deploy completed successfully"
+          fi
+          set -e
       
       - name: Deployment success notification
         run: |
@@ -182,6 +200,7 @@ jobs:
       
       - name: Deploy to production
         run: |
+          set +e
           sam deploy \
             --stack-name lambda-cicd-prod \
             --parameter-overrides \
@@ -191,6 +210,23 @@ jobs:
             --region ${{ env.AWS_REGION }} \
             --no-confirm-changeset \
             --resolve-s3
+          
+          DEPLOY_EXIT_CODE=$?
+          if [ $DEPLOY_EXIT_CODE -eq 1 ]; then
+            echo "Deploy returned exit code 1, checking if it's 'No changes to deploy'..."
+            if sam deploy --stack-name lambda-cicd-prod --parameter-overrides Environment=prod LogLevel=INFO --capabilities CAPABILITY_IAM --region ${{ env.AWS_REGION }} --no-confirm-changeset --resolve-s3 2>&1 | grep -q "No changes to deploy"; then
+              echo "✅ No changes to deploy - stack is up to date"
+            else
+              echo "❌ Deploy failed with a different error"
+              exit 1
+            fi
+          elif [ $DEPLOY_EXIT_CODE -ne 0 ]; then
+            echo "❌ Deploy failed with exit code $DEPLOY_EXIT_CODE"
+            exit $DEPLOY_EXIT_CODE
+          else
+            echo "✅ Deploy completed successfully"
+          fi
+          set -e
       
       - name: Production deployment notification
         run: |
