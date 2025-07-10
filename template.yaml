@@ -49,7 +49,7 @@ Resources:
     Properties:
       LayerName: !Sub ${AWS::StackName}-common-layer
       Description: Common utilities and libraries
-      Content: ./src/layers/
+      Content: ./src/layers/common/
       CompatibleRuntimes:
         - python3.9
 
@@ -58,7 +58,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub ${AWS::StackName}-user-management
-      CodeUri: ./src/handlers/
+      CodeUri: ./src/user_management/
       Handler: user_management.lambda_handler
       Layers:
         - !Ref CommonLayer
@@ -87,7 +87,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub ${AWS::StackName}-data-processor
-      CodeUri: ./src/handlers/
+      CodeUri: ./src/data_processor/
       Handler: data_processor.lambda_handler
       Layers:
         - !Ref CommonLayer
@@ -114,7 +114,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub ${AWS::StackName}-notification
-      CodeUri: ./src/handlers/
+      CodeUri: ./src/notification/
       Handler: notification.lambda_handler
       Layers:
         - !Ref CommonLayer
@@ -129,6 +129,21 @@ Resources:
           Type: SNS
           Properties:
             Topic: !Ref NotificationTopic
+
+  # Lambda Function 4: ヘルスチェック
+  HealthCheckFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-health-check
+      CodeUri: ./src/health_check/
+      Handler: health_check.lambda_handler
+      Events:
+        HealthCheck:
+          Type: Api
+          Properties:
+            Path: /health
+            Method: get
+            RestApiId: !Ref ApiGateway
 
   # API Gateway
   ApiGateway:
