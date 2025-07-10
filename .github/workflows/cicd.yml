@@ -122,22 +122,22 @@ jobs:
       
       - name: Deploy to development
         run: |
-          sam deploy \\
-            --stack-name lambda-cicd-dev \\
-            --parameter-overrides \\
-              Environment=dev \\
-              LogLevel=DEBUG \\
-            --capabilities CAPABILITY_IAM \\
-            --region ${{ env.AWS_REGION }} \\
-            --no-confirm-changeset \\
+          sam deploy \
+            --stack-name lambda-cicd-dev \
+            --parameter-overrides \
+              Environment=dev \
+              LogLevel=DEBUG \
+            --capabilities CAPABILITY_IAM \
+            --region ${{ env.AWS_REGION }} \
+            --no-confirm-changeset \
             --resolve-s3
       
       - name: Run integration tests
         run: |
           # API Gateway URLを取得
-          API_URL=$(aws cloudformation describe-stacks \\
-            --stack-name lambda-cicd-dev \\
-            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \\
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name lambda-cicd-dev \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
             --output text)
           
           # Health check
@@ -175,22 +175,22 @@ jobs:
       
       - name: Deploy to production
         run: |
-          sam deploy \\
-            --stack-name lambda-cicd-prod \\
-            --parameter-overrides \\
-              Environment=prod \\
-              LogLevel=INFO \\
-            --capabilities CAPABILITY_IAM \\
-            --region ${{ env.AWS_REGION }} \\
-            --no-confirm-changeset \\
+          sam deploy \
+            --stack-name lambda-cicd-prod \
+            --parameter-overrides \
+              Environment=prod \
+              LogLevel=INFO \
+            --capabilities CAPABILITY_IAM \
+            --region ${{ env.AWS_REGION }} \
+            --no-confirm-changeset \
             --resolve-s3
       
       - name: Run smoke tests
         run: |
           # API Gateway URLを取得
-          API_URL=$(aws cloudformation describe-stacks \\
-            --stack-name lambda-cicd-prod \\
-            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \\
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name lambda-cicd-prod \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
             --output text)
           
           # Health check
