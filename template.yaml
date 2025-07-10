@@ -62,24 +62,18 @@ Resources:
             Path: /users
             Method: post
             RestApiId: !Ref ApiGateway
-            Auth:
-              ApiKeyRequired: false
         GetUser:
           Type: Api
           Properties:
             Path: /users/{id}
             Method: get
             RestApiId: !Ref ApiGateway
-            Auth:
-              ApiKeyRequired: false
         ListUsers:
           Type: Api
           Properties:
             Path: /users
             Method: get
             RestApiId: !Ref ApiGateway
-            Auth:
-              ApiKeyRequired: false
 
   # Lambda Function 2: データ処理
   DataProcessorFunction:
@@ -97,8 +91,6 @@ Resources:
             Path: /process
             Method: post
             RestApiId: !Ref ApiGateway
-            Auth:
-              ApiKeyRequired: false
         S3Event:
           Type: S3
           Properties:
