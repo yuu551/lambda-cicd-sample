@@ -5,7 +5,7 @@ import os
 
 def lambda_handler(event, context):
     """ヘルスチェック用のエンドポイント"""
-    
+
     # 基本的なヘルスチェック情報
     health_info = {
         "status": "healthy",
@@ -14,7 +14,7 @@ def lambda_handler(event, context):
         "version": "1.0.0",
         "service": "lambda-cicd-sample"
     }
-    
+
     return {
         'statusCode': 200,
         'headers': {
