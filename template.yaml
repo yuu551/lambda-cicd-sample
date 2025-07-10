@@ -62,6 +62,9 @@ Resources:
       Handler: user_management.lambda_handler
       Layers:
         - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserTable
       Events:
         CreateUser:
           Type: Api
@@ -91,6 +94,9 @@ Resources:
       Handler: data_processor.lambda_handler
       Layers:
         - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProcessedDataTable
       Events:
         ProcessData:
           Type: Api
@@ -118,6 +124,11 @@ Resources:
       Handler: notification.lambda_handler
       Layers:
         - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         SendNotification:
           Type: Api
@@ -175,6 +186,43 @@ Resources:
     Properties:
       TopicName: !Sub ${AWS::StackName}-notifications
       DisplayName: Notification Topic
+
+  # DynamoDB Tables
+  UserTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  ProcessedDataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-processed-data
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  NotificationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-notifications
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
 
   # CloudWatch Log Groups
   UserManagementLogGroup:
