@@ -205,13 +205,17 @@ git branch -M main
 git push -u origin main
 ```
 
-### 4. GitHub Actions環境設定
+### 4. AWS OIDC認証設定
 
-CI/CDパイプラインを動作させるために以下を設定：
+GitHub ActionsからAWSにアクセスするためのOIDC認証を設定する必要があります。
 
-#### a) Repository Secrets
-Settings → Secrets and variables → Actions で以下を追加：
-- `AWS_ROLE_ARN`: デプロイ用のIAMロールARN
+**重要**: 詳細な設定手順は [docs/aws-oidc-setup.md](docs/aws-oidc-setup.md) を参照してください。
+
+#### 設定概要
+1. **AWS OIDC Provider作成**: GitHubトークンを信頼するプロバイダー
+2. **IAMロール作成**: CloudFormation、Lambda、S3等の必要権限を付与
+3. **GitHub Secrets設定**: `AWS_ROLE_ARN`の設定
+4. **GitHub Environments作成**: test、development、production環境
 
 #### b) Environments
 Settings → Environments で以下を作成：
