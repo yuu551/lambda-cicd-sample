@@ -122,6 +122,16 @@ jobs:
       
       - name: Deploy to development
         run: |
+          # Check if stack exists and is in ROLLBACK_FAILED state
+          STACK_STATUS=$(aws cloudformation describe-stacks --stack-name lambda-cicd-dev --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "STACK_NOT_EXISTS")
+          
+          if [ "$STACK_STATUS" = "ROLLBACK_FAILED" ]; then
+            echo "Stack is in ROLLBACK_FAILED state. Deleting stack first..."
+            aws cloudformation delete-stack --stack-name lambda-cicd-dev
+            aws cloudformation wait stack-delete-complete --stack-name lambda-cicd-dev
+            echo "Stack deleted successfully."
+          fi
+          
           sam deploy \
             --stack-name lambda-cicd-dev \
             --parameter-overrides \
