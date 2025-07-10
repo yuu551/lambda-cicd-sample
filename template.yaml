@@ -15,6 +15,13 @@ Globals:
       Variables:
         ENVIRONMENT: !Ref Environment
         LOG_LEVEL: !Ref LogLevel
+  Api:
+    Auth:
+      DefaultAuthorizer: NONE
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowOrigin: "'*'"
 
 Parameters:
   Environment:
