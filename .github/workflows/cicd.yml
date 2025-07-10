@@ -82,7 +82,7 @@ jobs:
           sam build --use-container
       
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sam-build-artifacts
           path: .aws-sam/build
@@ -111,7 +111,7 @@ jobs:
           role-session-name: GitHubActions
       
       - name: Download build artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: sam-build-artifacts
           path: .aws-sam/build
@@ -164,7 +164,7 @@ jobs:
           role-session-name: GitHubActions
       
       - name: Download build artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: sam-build-artifacts
           path: .aws-sam/build
