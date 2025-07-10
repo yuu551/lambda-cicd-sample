@@ -16,8 +16,8 @@ os.environ['AWS_SESSION_TOKEN'] = 'testing'
 os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
 
 # テスト対象モジュールをインポート
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'handlers'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'layers', 'common'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'user_management'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'layers', 'common', 'python'))
 
 from user_management import lambda_handler, create_user, get_user, list_users
 
