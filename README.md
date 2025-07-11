@@ -1,22 +1,90 @@
 # Lambda CI/CD Sample
 
-複数のLambda関数を含むCI/CD環境のサンプルプロジェクトです。
+[![AWS](https://img.shields.io/badge/AWS-232F3E?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/)
+[![Lambda](https://img.shields.io/badge/AWS_Lambda-FF9900?style=for-the-badge&logo=aws-lambda&logoColor=white)](https://aws.amazon.com/lambda/)
+[![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org/)
+[![SAM](https://img.shields.io/badge/AWS_SAM-FF9900?style=for-the-badge&logo=amazon-aws&logoColor=white)](https://aws.amazon.com/serverless/sam/)
+[![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=github-actions&logoColor=white)](https://github.com/features/actions)
 
-## 📁 プロジェクト構成
+複数のLambda関数を含む、サーバーレスアプリケーションのサンプルプロジェクトです。GitHub ActionsによるCI/CDパイプライン、共通レイヤー、CloudWatchモニタリングを含む実践的な構成を提供します。
+
+## 目次
+
+- [システム構成](#システム構成)
+- [機能概要](#機能概要)
+- [前提条件](#前提条件)
+- [セットアップ](#セットアップ)
+- [デプロイ](#デプロイ)
+- [テスト](#テスト)
+- [CI/CDパイプライン](#cicdパイプライン)
+- [トラブルシューティング](#トラブルシューティング)
+
+## システム構成
+
+本プロジェクトは、API Gateway、Lambda関数、DynamoDB、S3、SNSを組み合わせたサーバーレスアーキテクチャを採用しています。
+
+### アーキテクチャ図
+
+![Lambda CI/CD Sample Architecture](lambda_ci_cd_sample_architecture_final.png)
+
+### アーキテクチャ概要
+
+上記の構成図は、以下のコンポーネントで構成されています：
+
+#### フロントエンド層
+- **API Gateway**: すべてのHTTPリクエストのエントリポイント
+  - 各Lambda関数への適切なルーティング
+  - リクエストの検証とレート制限
+
+#### コンピューティング層
+- **Lambda関数**: 4つのサーバーレス関数
+  - User Management (ユーザー管理)
+  - Data Processor (データ処理)
+  - Notification (通知)
+  - Health Check (ヘルスチェック)
+- **共通レイヤー**: 全Lambda関数で共有されるコードとライブラリ
+  - 共通ユーティリティ、データベース操作、バリデーション機能
+
+#### データ層
+- **DynamoDB**: NoSQLデータベース
+  - `users` テーブル: ユーザー情報
+  - `processed-data` テーブル: 処理済みデータ
+  - `notifications` テーブル: 通知履歴
+- **S3**: オブジェクトストレージ
+  - データファイルの保存
+  - イベントトリガーによる自動処理
+
+#### メッセージング層
+- **SNS**: 通知配信のためのメッセージングサービス
+  - 非同期通知処理
+  - 複数の配信先への通知
+
+#### 監視・ログ層
+- **CloudWatch**: ログとメトリクスの収集
+  - 全Lambda関数の実行ログ
+  - パフォーマンスメトリクス
+
+### プロジェクト構成
 
 ```
 lambda-cicd-sample/
 ├── template.yaml              # SAMテンプレート
 ├── src/
-│   ├── handlers/             # Lambda関数のハンドラー
-│   │   ├── user_management.py
-│   │   ├── data_processor.py
+│   ├── user_management/      # ユーザー管理Lambda関数
+│   │   └── user_management.py
+│   ├── data_processor/       # データ処理Lambda関数
+│   │   └── data_processor.py
+│   ├── notification/         # 通知Lambda関数
 │   │   └── notification.py
+│   ├── health_check/         # ヘルスチェックLambda関数
+│   │   └── health_check.py
 │   ├── layers/               # 共通レイヤー
 │   │   └── common/
-│   │       ├── utils.py
-│   │       ├── db.py
-│   │       ├── validators.py
+│   │       ├── python/       # レイヤーのPythonコード
+│   │       │   ├── db.py
+│   │       │   ├── utils.py
+│   │       │   ├── validators.py
+│   │       │   └── requirements.txt
 │   │       └── requirements.txt
 │   └── tests/                # テストコード
 │       └── test_user_management.py
@@ -30,269 +98,142 @@ lambda-cicd-sample/
 └── README.md
 ```
 
-## 🚀 機能
+## 機能概要
 
 ### Lambda関数
+
 1. **User Management** - ユーザー管理API
-   - ユーザー作成 (POST /users)
-   - ユーザー取得 (GET /users/{id})
-   - ユーザー一覧 (GET /users)
+   - POST /users - ユーザー作成
+   - GET /users/{id} - ユーザー取得
+   - GET /users - ユーザー一覧
 
 2. **Data Processor** - データ処理
-   - API経由でのデータ処理 (POST /process)
-   - S3オブジェクト作成時の自動処理
+   - POST /process - API経由でのデータ処理
+   - S3イベントトリガー - アップロードファイルの自動処理
 
 3. **Notification** - 通知サービス
-   - Email/SMS通知 (POST /notify)
+   - POST /notify - Email/SMS通知の送信
    - SNSトピック経由の通知処理
 
 ### 共通レイヤー
-- **utils.py** - 共通ユーティリティ関数
-- **db.py** - DynamoDB操作クラス
-- **validators.py** - バリデーション関数
 
-## 🛠️ 前提条件
+すべてのLambda関数で共有される共通コンポーネント：
 
-- [AWS CLI](https://aws.amazon.com/cli/) がインストールされ、設定されている
-- [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html) がインストールされている
-- [Docker](https://www.docker.com/) がインストールされている
-- Python 3.9 以上
+#### レイヤー構造
+```
+src/layers/common/
+├── python/                    # Python実行時にインポートされるディレクトリ
+│   ├── db.py                 # DynamoDB操作クラス
+│   ├── utils.py              # 共通ユーティリティ関数
+│   ├── validators.py         # 入力検証関数
+│   └── requirements.txt      # レイヤー固有の依存関係
+└── requirements.txt          # レイヤービルド用の依存関係
+```
 
-## 🔧 ローカル開発環境の設定
+#### 各モジュールの役割
 
-### 1. 仮想環境の作成と依存関係のインストール
+**`db.py`**
+- DynamoDBテーブル操作の基底クラス
+- CRUD操作の共通メソッド
+- 環境変数ベースのテーブル名管理
 
-#### macOS/Linux
+**`utils.py`**
+- HTTPレスポンス生成
+- JSON解析とエラーハンドリング
+- ログ出力の標準化
+- 共通の設定管理
+
+**`validators.py`**
+- 入力データの検証
+- 型チェックと必須フィールド検証
+- エラーメッセージの標準化
+
+#### レイヤーの利用方法
+
+Lambda関数内でレイヤーのモジュールをインポート：
+```python
+from utils import create_response, get_logger
+from db import DynamoDBBase
+from validators import validate_user_input
+```
+
+## 前提条件
+
+- [AWS CLI](https://aws.amazon.com/cli/) - インストール済みで設定済み
+- [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
+- [Docker](https://www.docker.com/) - SAM Localでのテスト用
+- Python 3.9以上
+
+## セットアップ
+
+### 1. 依存関係のインストール
+
 ```bash
 # Python仮想環境を作成
 python3 -m venv venv
 
 # 仮想環境を有効化
-source venv/bin/activate
+source venv/bin/activate  # macOS/Linux
+# venv\Scripts\activate   # Windows
 
-# テストに必要なパッケージをインストール
+# 必要なパッケージをインストール
 pip install --upgrade pip
 pip install pytest "moto[dynamodb]" boto3
 pip install -r src/layers/common/requirements.txt
 ```
 
-#### Windows (Command Prompt)
-```cmd
-# Python仮想環境を作成
-python -m venv venv
-
-# 仮想環境を有効化
-venv\Scripts\activate
-
-# テストに必要なパッケージをインストール
-pip install --upgrade pip
-pip install pytest "moto[dynamodb]" boto3
-pip install -r src/layers/common/requirements.txt
-```
-
-#### Windows (PowerShell)
-```powershell
-# Python仮想環境を作成
-python -m venv venv
-
-# 仮想環境を有効化
-venv\Scripts\Activate.ps1
-# または実行ポリシーエラーの場合
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-venv\Scripts\Activate.ps1
-
-# テストに必要なパッケージをインストール
-pip install --upgrade pip
-pip install pytest 'moto[dynamodb]' boto3
-pip install -r src/layers/common/requirements.txt
-```
-
-### 2. SAM ビルド
+### 2. SAMビルド
 
 ```bash
 sam build
 ```
 
-### 3. ローカルテスト
-
-#### 単体テスト実行
-
-**macOS/Linux**
-```bash
-# 仮想環境が有効であることを確認
-source venv/bin/activate
-
-# テストを実行
-cd src/tests
-python -m pytest test_user_management.py -v
-
-# または従来のunittest方式
-python test_user_management.py
-```
-
-**Windows**
-```cmd
-# 仮想環境が有効であることを確認
-venv\Scripts\activate
-
-# テストを実行
-cd src\tests
-python -m pytest test_user_management.py -v
-
-# または従来のunittest方式
-python test_user_management.py
-```
-
-**注意**: テストではmoto 5.x以降を使用しているため、DynamoDBのモック機能が自動で有効になります。
-
-#### SAM Local による関数テスト
-```bash
-# SAMビルドが必要（初回のみ）
-sam build
-
-# ユーザー作成のテスト
-sam local invoke UserManagementFunction --event events/user-create.json
-
-# データ処理のテスト
-sam local invoke DataProcessorFunction --event events/s3-event.json
-
-# 通知のテスト
-sam local invoke NotificationFunction --event events/notification-send.json
-```
-
-**注意**: SAM Localの実行にはDockerが必要です。
-
-#### ローカルAPI起動
-```bash
-# APIサーバーをローカルで起動
-sam local start-api --port 3000
-
-# 別のターミナルでテスト
-curl -X POST http://localhost:3000/users \\
-  -H "Content-Type: application/json" \\
-  -d '{"name": "Test User", "email": "test@example.com"}'
-
-curl http://localhost:3000/users
-```
-
-## 🐙 GitHubリポジトリ作成とCI/CD設定
-
-### 1. Gitリポジトリの初期化
-
-```bash
-# プロジェクトルートで実行
-git init
-git add .
-git commit -m "Initial commit: Lambda CI/CD sample"
-```
-
-### 2. GitHubリポジトリの作成
-
-1. [GitHub](https://github.com)にログイン
-2. 「New repository」をクリック
-3. リポジトリ設定:
-   - **Repository name**: `lambda-cicd-sample`
-   - **Owner**: `yuu551`
-   - **Visibility**: Public または Private
-   - **Initialize**: チェックを入れない（既にコードがあるため）
-
-### 3. リモートリポジトリとの連携
-
-```bash
-# GitHubで作成したリポジトリURLを設定
-git remote add origin https://github.com/yuu551/lambda-cicd-sample.git
-git branch -M main
-git push -u origin main
-```
-
-### 4. AWS OIDC認証設定
-
-GitHub ActionsからAWSにアクセスするためのOIDC認証を設定する必要があります。
-
-**重要**: 詳細な設定手順は [docs/aws-oidc-setup.md](docs/aws-oidc-setup.md) を参照してください。
-
-#### 設定概要
-1. **AWS OIDC Provider作成**: GitHubトークンを信頼するプロバイダー
-2. **IAMロール作成**: CloudFormation、Lambda、S3等の必要権限を付与
-3. **GitHub Secrets設定**: `AWS_ROLE_ARN`の設定
-4. **GitHub Environments作成**: test、development、production環境
-
-#### b) Environments
-Settings → Environments で以下を作成：
-- `test`: テスト環境用
-- `development`: 開発環境用  
-- `production`: 本番環境用
-
-### 5. CI/CDワークフロー体験
-
-```bash
-# 開発ブランチでの作業
-git checkout -b develop
-git push -u origin develop
-# → GitHub Actionsで開発環境への自動デプロイが実行
-
-# Pull Request作成
-# → 自動テストが実行される
-
-# mainブランチへのマージ
-# → 本番環境への自動デプロイが実行
-```
-
-## 🚀 デプロイ方法
+## デプロイ
 
 ### 手動デプロイ
 
-#### 開発環境
+開発環境へのデプロイ：
 ```bash
-sam deploy \\
-  --stack-name lambda-cicd-dev \\
-  --parameter-overrides Environment=dev LogLevel=DEBUG \\
-  --capabilities CAPABILITY_IAM \\
-  --region ap-northeast-1 \\
+sam deploy \
+  --stack-name lambda-cicd-dev \
+  --parameter-overrides Environment=dev LogLevel=DEBUG \
+  --capabilities CAPABILITY_IAM \
+  --region ap-northeast-1 \
   --resolve-s3
 ```
 
-#### 本番環境
+本番環境へのデプロイ：
 ```bash
-sam deploy \\
-  --stack-name lambda-cicd-prod \\
-  --parameter-overrides Environment=prod LogLevel=INFO \\
-  --capabilities CAPABILITY_IAM \\
-  --region ap-northeast-1 \\
+sam deploy \
+  --stack-name lambda-cicd-prod \
+  --parameter-overrides Environment=prod LogLevel=INFO \
+  --capabilities CAPABILITY_IAM \
+  --region ap-northeast-1 \
   --resolve-s3
 ```
 
-### GitHub Actions による自動デプロイ
+### GitHub Actionsによる自動デプロイ
 
-このプロジェクトは GitHub Actions による CI/CD パイプラインを含んでいます。
+1. GitHubリポジトリの設定
+   - Settings → Environments で以下を作成:
+     - `test`
+     - `development`
+     - `production`
 
-#### 必要な設定
-1. GitHub リポジトリで以下のEnvironmentを作成:
-   - `test`
-   - `development`
-   - `production`
+2. AWS OIDC認証の設定
+   - IAMロールの作成とGitHub Secretsの設定
+   - 詳細は [docs/aws-oidc-setup.md](docs/aws-oidc-setup.md) を参照
 
-2. 各環境に以下のSecretsを設定:
-   - `AWS_ROLE_ARN`: デプロイ用のIAMロールARN
+3. デプロイフロー
+   - `develop` ブランチ → 開発環境へ自動デプロイ
+   - `main` ブランチ → 本番環境へ自動デプロイ
+   - プルリクエスト → テスト実行
 
-#### デプロイフロー
-- `develop` ブランチ → 開発環境へ自動デプロイ
-- `main` ブランチ → 本番環境へ自動デプロイ
-- プルリクエスト → テスト実行 + SAM Local テスト
+## テスト
 
-## 📊 モニタリング
+### ローカルテスト
 
-デプロイ後は以下のAWSサービスでモニタリングできます:
-
-- **CloudWatch Logs**: Lambda関数のログ
-- **CloudWatch Metrics**: パフォーマンス指標
-- **X-Ray**: 分散トレーシング（有効化済み）
-
-## 🧪 テスト
-
-### ユニットテスト
-
-**macOS/Linux**
+単体テストの実行：
 ```bash
 # 仮想環境を有効化
 source venv/bin/activate
@@ -300,82 +241,131 @@ source venv/bin/activate
 # テストを実行
 cd src/tests
 python -m pytest test_user_management.py -v
-
-# カバレッジ付きテスト（オプション）
-pip install pytest-cov
-python -m pytest test_user_management.py --cov=../handlers --cov-report=html
 ```
 
-**Windows**
-```cmd
-# 仮想環境を有効化
-venv\Scripts\activate
-
-# テストを実行
-cd src\tests
-python -m pytest test_user_management.py -v
-
-# カバレッジ付きテスト（オプション）
-pip install pytest-cov
-python -m pytest test_user_management.py --cov=../handlers --cov-report=html
-```
-
-### 統合テスト
+SAM Localによる関数テスト：
 ```bash
-# デプロイ後のAPI URLを取得
-API_URL=$(aws cloudformation describe-stacks \\
-  --stack-name lambda-cicd-dev \\
-  --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \\
-  --output text)
+# ユーザー管理関数のテスト
+sam local invoke UserManagementFunction --event events/user-create.json
 
-# API テスト
-curl -X POST $API_URL/users \\
-  -H "Content-Type: application/json" \\
+# データ処理関数のテスト
+sam local invoke DataProcessorFunction --event events/s3-event.json
+
+# 通知関数のテスト
+sam local invoke NotificationFunction --event events/notification-send.json
+```
+
+ローカルAPIサーバーの起動：
+```bash
+# APIサーバーを起動
+sam local start-api --port 3000
+
+# 別ターミナルでテスト
+curl -X POST http://localhost:3000/users \
+  -H "Content-Type: application/json" \
   -d '{"name": "Test User", "email": "test@example.com"}'
 ```
 
-## 🔧 トラブルシューティング
+### 統合テスト
 
-### よくある問題
-
-1. **Lambda Layer のビルドエラー**
-   ```bash
-   # レイヤーディレクトリの権限を確認
-   ls -la src/layers/common/
-   
-   # requirements.txt が存在することを確認
-   cat src/layers/common/requirements.txt
-   ```
-
-2. **DynamoDB テーブルが見つからない**
-   - 環境変数 `ENVIRONMENT` が正しく設定されているか確認
-   - テーブル名が `{ENVIRONMENT}-{table_name}` の形式になっているか確認
-
-3. **API Gateway 403エラー**
-   - IAMロールの権限を確認
-   - CORSの設定を確認
-
-### ログ確認
+デプロイ後のAPIテスト：
 ```bash
-# 特定の関数のログを確認
+# API URLを取得
+API_URL=$(aws cloudformation describe-stacks \
+  --stack-name lambda-cicd-dev \
+  --query 'Stacks[0].Outputs[?OutputKey==`ApiGatewayUrl`].OutputValue' \
+  --output text)
+
+# APIテスト
+curl -X POST $API_URL/users \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Test User", "email": "test@example.com"}'
+```
+
+## CI/CDパイプライン
+
+GitHub Actionsを使用した自動化されたCI/CDパイプラインの構成：
+
+```mermaid
+graph LR
+    A[Developer] -->|git push| B[GitHub]
+    B -->|trigger| C{Branch?}
+    C -->|develop| D[Dev Deploy]
+    C -->|main| E[Prod Deploy]
+    C -->|PR| F[Tests Only]
+    D --> G[SAM Build]
+    E --> H[SAM Build]
+    F --> I[SAM Build]
+    G --> J[Deploy to Dev]
+    H --> K[Deploy to Prod]
+    I --> L[Run Tests]
+```
+
+### ワークフローのステップ
+
+1. **ビルド** - SAMによるアプリケーションのビルド
+2. **テスト** - 単体テストの実行
+3. **デプロイ** - 環境に応じたデプロイ
+4. **検証** - デプロイ後の動作確認
+
+## モニタリング
+
+### CloudWatch Logs
+
+Lambda関数のログ確認：
+```bash
+# 特定関数のログを確認
 aws logs tail /aws/lambda/lambda-cicd-dev-user-management --follow
 
-# すべてのログを確認
+# すべての関数のログを確認
 sam logs --stack-name lambda-cicd-dev --tail
 ```
 
-## 🛡️ セキュリティ
+### CloudWatch Metrics
 
-- Lambda関数は最小権限の原則に従ってIAMロールを設定
-- 機密情報は環境変数として管理
-- VPCの設定は必要に応じて実装
-- WAFの設定は本番環境で推奨
+以下のメトリクスが自動的に収集されます：
+- 呼び出し回数
+- エラー率
+- 実行時間
+- 同時実行数
 
-## 📝 ライセンス
+### API Gateway トレーシング
 
-このプロジェクトはMIT License の下で公開されています。
+API Gatewayレベルでのリクエスト追跡が有効になっています。
 
-## 🤝 貢献
+## トラブルシューティング
+
+### Lambda Layerのビルドエラー
+
+```bash
+# レイヤーディレクトリの確認
+ls -la src/layers/common/
+
+# requirements.txtの確認
+cat src/layers/common/requirements.txt
+```
+
+### DynamoDBテーブルが見つからない
+
+- 環境変数 `ENVIRONMENT` が正しく設定されているか確認
+- テーブル名が `{ENVIRONMENT}-{table_name}` の形式になっているか確認
+
+### API Gateway 403エラー
+
+- IAMロールの権限を確認
+- CORSの設定を確認
+
+## セキュリティ
+
+- IAMロールは最小権限の原則に基づいて設定
+- 環境変数で機密情報を管理
+- VPCとWAFの設定は必要に応じて実装
+
+## ライセンス
+
+このプロジェクトは [MIT License](LICENSE) の下で公開されています。
+
+## 貢献
 
 1. このリポジトリをフォーク
 2. 新しいブランチを作成 (`git checkout -b feature/new-feature`)
@@ -383,7 +373,7 @@ sam logs --stack-name lambda-cicd-dev --tail
 4. ブランチにプッシュ (`git push origin feature/new-feature`)
 5. プルリクエストを作成
 
-## 📚 参考資料
+## 参考資料
 
 - [AWS SAM デベロッパーガイド](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/)
 - [GitHub Actions でのSAMデプロイ](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/deploying-using-github.html)

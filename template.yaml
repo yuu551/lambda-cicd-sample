@@ -15,6 +15,13 @@ Globals:
       Variables:
         ENVIRONMENT: !Ref Environment
         LOG_LEVEL: !Ref LogLevel
+  Api:
+    Auth:
+      DefaultAuthorizer: NONE
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowOrigin: "'*'"
 
 Parameters:
   Environment:
@@ -42,7 +49,7 @@ Resources:
     Properties:
       LayerName: !Sub ${AWS::StackName}-common-layer
       Description: Common utilities and libraries
-      Content: ./src/layers/
+      Content: ./src/layers/common/
       CompatibleRuntimes:
         - python3.9
 
@@ -51,10 +58,13 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub ${AWS::StackName}-user-management
-      CodeUri: ./src/handlers/
+      CodeUri: ./src/user_management/
       Handler: user_management.lambda_handler
       Layers:
         - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UserTable
       Events:
         CreateUser:
           Type: Api
@@ -80,10 +90,13 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub ${AWS::StackName}-data-processor
-      CodeUri: ./src/handlers/
+      CodeUri: ./src/data_processor/
       Handler: data_processor.lambda_handler
       Layers:
         - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProcessedDataTable
       Events:
         ProcessData:
           Type: Api
@@ -107,10 +120,15 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub ${AWS::StackName}-notification
-      CodeUri: ./src/handlers/
+      CodeUri: ./src/notification/
       Handler: notification.lambda_handler
       Layers:
         - !Ref CommonLayer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NotificationTopic.TopicName
       Events:
         SendNotification:
           Type: Api
@@ -122,6 +140,21 @@ Resources:
           Type: SNS
           Properties:
             Topic: !Ref NotificationTopic
+
+  # Lambda Function 4: ヘルスチェック
+  HealthCheckFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-health-check
+      CodeUri: ./src/health_check/
+      Handler: health_check.lambda_handler
+      Events:
+        HealthCheck:
+          Type: Api
+          Properties:
+            Path: /health
+            Method: get
+            RestApiId: !Ref ApiGateway
 
   # API Gateway
   ApiGateway:
@@ -153,6 +186,43 @@ Resources:
     Properties:
       TopicName: !Sub ${AWS::StackName}-notifications
       DisplayName: Notification Topic
+
+  # DynamoDB Tables
+  UserTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-users
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  ProcessedDataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-processed-data
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  NotificationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${Environment}-notifications
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
 
   # CloudWatch Log Groups
   UserManagementLogGroup:
