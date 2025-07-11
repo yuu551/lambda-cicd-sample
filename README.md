@@ -308,73 +308,12 @@ graph LR
 3. **デプロイ** - 環境に応じたデプロイ
 4. **検証** - デプロイ後の動作確認
 
-## モニタリング
 
-### CloudWatch Logs
 
-Lambda関数のログ確認：
-```bash
-# 特定関数のログを確認
-aws logs tail /aws/lambda/lambda-cicd-dev-user-management --follow
 
-# すべての関数のログを確認
-sam logs --stack-name lambda-cicd-dev --tail
-```
-
-### CloudWatch Metrics
-
-以下のメトリクスが自動的に収集されます：
-- 呼び出し回数
-- エラー率
-- 実行時間
-- 同時実行数
-
-### API Gateway トレーシング
-
-API Gatewayレベルでのリクエスト追跡が有効になっています。
-
-## トラブルシューティング
-
-### Lambda Layerのビルドエラー
-
-```bash
-# レイヤーディレクトリの確認
-ls -la src/layers/common/
-
-# requirements.txtの確認
-cat src/layers/common/requirements.txt
-```
-
-### DynamoDBテーブルが見つからない
-
-- 環境変数 `ENVIRONMENT` が正しく設定されているか確認
-- テーブル名が `{ENVIRONMENT}-{table_name}` の形式になっているか確認
-
-### API Gateway 403エラー
-
-- IAMロールの権限を確認
-- CORSの設定を確認
 
 ## セキュリティ
 
 - IAMロールは最小権限の原則に基づいて設定
 - 環境変数で機密情報を管理
 - VPCとWAFの設定は必要に応じて実装
-
-## ライセンス
-
-このプロジェクトは [MIT License](LICENSE) の下で公開されています。
-
-## 貢献
-
-1. このリポジトリをフォーク
-2. 新しいブランチを作成 (`git checkout -b feature/new-feature`)
-3. 変更をコミット (`git commit -am 'Add new feature'`)
-4. ブランチにプッシュ (`git push origin feature/new-feature`)
-5. プルリクエストを作成
-
-## 参考資料
-
-- [AWS SAM デベロッパーガイド](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/)
-- [GitHub Actions でのSAMデプロイ](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/deploying-using-github.html)
-- [AWS Lambda 開発者ガイド](https://docs.aws.amazon.com/lambda/latest/dg/)
