@@ -152,9 +152,9 @@ src/layers/common/
 
 Lambda関数内でレイヤーのモジュールをインポート：
 ```python
-from utils import create_response, get_logger
-from db import DynamoDBBase
-from validators import validate_user_input
+from utils import create_response
+from db import DynamoDBManager
+from validators import validate_email, validate_required_fields
 ```
 
 ## 前提条件

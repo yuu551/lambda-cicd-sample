@@ -1,10 +1,5 @@
 import os
-import sys
 import boto3
-
-# Lambda Layerのパスを追加
-sys.path.insert(0, '/opt/python')
-sys.path.insert(0, '/opt/python/lib/python3.9/site-packages')
 
 from utils import (
     create_response,
