@@ -1,0 +1,116 @@
+services:
+  localstack:
+    container_name: localstack
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=dynamodb,s3,sns,logs
+      - DEBUG=1
+      - PERSISTENCE=1
+      - LS_LOG=debug
+    volumes:
+      - "./localstack-data:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - lambda-network
+
+  user-management:
+    build:
+      context: ..
+      dockerfile: localstack-version/Dockerfile
+    container_name: user-management
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - ENVIRONMENT=local
+      - LOG_LEVEL=DEBUG
+      - LAMBDA_HANDLER=user_management.lambda_handler
+      - LAMBDA_FUNCTION_DIR=/var/task/src/user_management
+    volumes:
+      - ../src/user_management:/var/task/src/user_management:ro
+      - ../src/layers/common/python:/opt/python:ro
+    ports:
+      - "9001:8080"
+    depends_on:
+      - localstack
+    networks:
+      - lambda-network
+
+  data-processor:
+    build:
+      context: ..
+      dockerfile: localstack-version/Dockerfile
+    container_name: data-processor
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - ENVIRONMENT=local
+      - LOG_LEVEL=DEBUG
+      - LAMBDA_HANDLER=data_processor.lambda_handler
+      - LAMBDA_FUNCTION_DIR=/var/task/src/data_processor
+    volumes:
+      - ../src/data_processor:/var/task/src/data_processor:ro
+      - ../src/layers/common/python:/opt/python:ro
+    ports:
+      - "9002:8080"
+    depends_on:
+      - localstack
+    networks:
+      - lambda-network
+
+  notification:
+    build:
+      context: ..
+      dockerfile: localstack-version/Dockerfile
+    container_name: notification
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - ENVIRONMENT=local
+      - LOG_LEVEL=DEBUG
+      - LAMBDA_HANDLER=notification.lambda_handler
+      - LAMBDA_FUNCTION_DIR=/var/task/src/notification
+    volumes:
+      - ../src/notification:/var/task/src/notification:ro
+      - ../src/layers/common/python:/opt/python:ro
+    ports:
+      - "9003:8080"
+    depends_on:
+      - localstack
+    networks:
+      - lambda-network
+
+  health-check:
+    build:
+      context: ..
+      dockerfile: localstack-version/Dockerfile
+    container_name: health-check
+    environment:
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - ENVIRONMENT=local
+      - LOG_LEVEL=DEBUG
+      - LAMBDA_HANDLER=health_check.lambda_handler
+      - LAMBDA_FUNCTION_DIR=/var/task/src/health_check
+    volumes:
+      - ../src/health_check:/var/task/src/health_check:ro
+      - ../src/layers/common/python:/opt/python:ro
+    ports:
+      - "9004:8080"
+    depends_on:
+      - localstack
+    networks:
+      - lambda-network
+
+networks:
+  lambda-network:
+    driver: bridge
